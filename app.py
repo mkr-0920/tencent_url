@@ -8,8 +8,7 @@ import base64
 
 app = Flask(__name__)
 
-cookie_str = ''
-
+cookies_dict = {"uin":"","qqmusic_key":"","qm_keyst":""}
 class QQMusic:
     def __init__(self):
         self.base_url = 'https://u.y.qq.com/cgi-bin/musicu.fcg'
@@ -52,37 +51,18 @@ class QQMusic:
         self.song_url = 'https://c.y.qq.com/v8/fcg-bin/fcg_play_single_song.fcg'
         self.lyric_url = 'https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg'
 
-    def set_cookies(self, cookie_str):
+    def set_cookies(self, cookies_dict):
         cookies = {}
-        for cookie in cookie_str.split('; '):
-            key, value = cookie.split('=', 1)
-            cookies[key] = value
-        self.cookies = cookies
+        self.cookies = cookies_dict
 
     def ids(self, url):
-        """
-        从不同类型的 URL 中提取歌曲 ID，支持重定向和 /songDetail/ URL 形式
-        """
-        # 如果URL中包含 'c6.y.qq.com'，则发送请求获取重定向后的URL
-        if 'c6.y.qq.com' in url:
-            response = requests.get(url, allow_redirects=False)
-            url = response.headers.get('Location')  # 获取重定向的URL
+        # 如果是带 id= 参数的 URL，提取 id 参数
+        if 'id=' in url:
+            index = url.find('id=') + 3
+            song_id = url[index:].split('&')[0]  # 提取 'id' 的值
+            return song_id
 
-        # 检查重定向后的URL中是否包含 'y.qq.com'，并根据情况提取 id
-        if 'y.qq.com' in url:
-            # 处理 /songDetail/ 形式的 URL
-            if '/songDetail/' in url:
-                index = url.find('/songDetail/') + len('/songDetail/')
-                song_id = url[index:].split('/')[0]  # 提取 '/songDetail/' 后面的部分
-                return song_id
-            
-            # 如果是带 id= 参数的 URL，提取 id 参数
-            if 'id=' in url:
-                index = url.find('id=') + 3
-                song_id = url[index:].split('&')[0]  # 提取 'id' 的值
-                return song_id
-
-        # 如果都不匹配，返回 None
+        # 如果不匹配，返回 None
         return None
 
     def get_music_url(self, songmid, file_type='flac'):
@@ -295,13 +275,13 @@ def get_song():
         return jsonify({"error": "url parameter is required"}), 400
 
     qqmusic = QQMusic()
-    qqmusic.set_cookies(cookie_str)
+    qqmusic.set_cookies(cookies_dict)
 
     # 从传入的 URL 中提取 songmid 或 songid
     songmid = qqmusic.ids(song_url)
 
     # 文件类型处理
-    file_types = ['aac_48','aac_96','aac_192','ogg_96','ogg_192','ogg_320','ogg_640','atmos_51','atmos_2','master','flac','320','128']
+    file_types = ['flac','320','128']
     results = {}
 
     try:
@@ -320,12 +300,12 @@ def get_song():
         if result:
             results[file_type] = result
         time.sleep(0.1)
-    lyric =  qqmusic.get_music_lyric_new(info['id'])
+    # lyric =  qqmusic.get_music_lyric_new(info['id'])
 
     # 构造 JSON 输出
     output = {
         'song': info,
-        'lyric': lyric,
+        #'lyric': lyric,
         'music_urls': results,
     }
     json_data = json.dumps(output)
